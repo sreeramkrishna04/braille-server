@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Upload PDF</title>
+</head>
+<body>
+  <h2>Upload PDF for ESP32 Braille Display</h2>
+  <form action="/upload" method="post" enctype="multipart/form-data">
+    <input type="file" name="file" accept="application/pdf">
+    <input type="submit" value="Upload PDF">
+  </form>
+  <p>Uploaded PDFs are processed automatically. ESP32 fetches latest text.</p>
+</body>
+</html>
