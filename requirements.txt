@@ -1,2 +1,8 @@
 flask
-PyPDF2
+pytesseract
+opencv-python-headless
+pillow
+pdf2image
+pdfplumber
+numpy
+gunicorn
