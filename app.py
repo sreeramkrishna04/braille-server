@@ -1,91 +1,109 @@
-from flask import Flask, request, jsonify, render_template
-import os
-import PyPDF2
-import re
-from werkzeug.utils import secure_filename
+from flask import Flask, request, jsonify
+import os, re, uuid
+
+import pytesseract
+from PIL import Image
+import cv2
+import numpy as np
+
+from pdf2image import convert_from_path
+import pdfplumber
 
 app = Flask(__name__)
 
-# ---------------- Configuration ----------------
 UPLOAD_FOLDER = "uploads"
-TEXT_FOLDER = "text_files"
-ALLOWED_EXTENSIONS = {'pdf'}
-
-EXTRACTED_TEXTS = {}   # stores extracted text
-LATEST_PDF = ""        # stores latest uploaded PDF name
-
-# Create required folders
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(TEXT_FOLDER, exist_ok=True)
 
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+LATEST_TEXT = ""
+VERSION = 0
 
-# ---------------- Utility Functions ----------------
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+# -------- CLEAN TEXT --------
+def clean_text(text):
+    text = text.lower()
+    text = re.sub(r'[^a-z0-9.,;:?!\'"()\-\s]', '', text)
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
 
-def extract_text_from_pdf(pdf_path):
-    text = ""
-    try:
-        with open(pdf_path, "rb") as f:
-            reader = PyPDF2.PdfReader(f)
-            for page in reader.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text += page_text + " "
-        text = re.sub(r'\s+', ' ', text).strip()
-    except Exception as e:
-        print(f"[ERROR] PDF read failed: {e}")
+# -------- IMAGE OCR --------
+def extract_text_from_image(path):
+    img = cv2.imread(path)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
+
+    text = pytesseract.image_to_string(thresh)
     return text
 
-# ---------------- Routes ----------------
-@app.route("/")
-def index():
-    return "Braille server running"
+# -------- PDF --------
+def extract_text_from_pdf(path):
+    text = ""
 
+    try:
+        with pdfplumber.open(path) as pdf:
+            for page in pdf.pages:
+                t = page.extract_text()
+                if t:
+                    text += t + " "
+    except:
+        pass
+
+    # fallback OCR
+    if len(text.strip()) < 50:
+        images = convert_from_path(path)
+        for img in images:
+            temp_path = "temp.jpg"
+            img.save(temp_path)
+            text += extract_text_from_image(temp_path)
+
+    return text
+
+# -------- HOME --------
+@app.route("/")
+def home():
+    return "Server Running"
+
+# -------- UPLOAD --------
 @app.route("/upload", methods=["POST"])
-def upload_file():
-    global LATEST_PDF
+def upload():
+    global LATEST_TEXT, VERSION
 
     if 'file' not in request.files:
-        return "No file part", 400
+        return "No file", 400
 
     file = request.files['file']
 
     if file.filename == "":
-        return "No selected file", 400
+        return "No file selected", 400
 
-    if not allowed_file(file.filename):
-        return "Invalid file type", 400
+    ext = file.filename.split('.')[-1].lower()
+    filename = str(uuid.uuid4()) + "." + ext
 
-    filename = secure_filename(file.filename)
-    save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(save_path)
+    path = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(path)
 
-    name_without_ext = filename.rsplit('.', 1)[0]
+    text = ""
 
-    text = extract_text_from_pdf(save_path)
+    if ext in ['jpg','jpeg','png']:
+        text = extract_text_from_image(path)
 
-    EXTRACTED_TEXTS[name_without_ext] = text
-    LATEST_PDF = name_without_ext
+    elif ext == 'pdf':
+        text = extract_text_from_pdf(path)
 
-    # Save backup text
-    with open(os.path.join(TEXT_FOLDER, f"{name_without_ext}.txt"), "w", encoding="utf-8") as f:
-        f.write(text)
+    text = clean_text(text)
+    text = text[:500]   # limit for ESP32
 
-    return "PDF uploaded and processed successfully", 200
+    LATEST_TEXT = text
+    VERSION += 1
 
+    return jsonify({"message":"ok","version":VERSION})
+
+# -------- GET TEXT --------
 @app.route("/get_text", methods=["GET"])
 def get_text():
-    if not LATEST_PDF:
-        return jsonify({"text": ""}), 200
-
     return jsonify({
-        "filename": LATEST_PDF,
-        "text": EXTRACTED_TEXTS.get(LATEST_PDF, "")
+        "version": VERSION,
+        "text": LATEST_TEXT
     })
 
-# ---------------- Render Entry Point ----------------
+# -------- RUN --------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # REQUIRED for Render
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=5000)
