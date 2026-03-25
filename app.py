@@ -19,7 +19,7 @@ os.makedirs(TEXT_FOLDER, exist_ok=True)
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# ---------------- Utility Functions ----------------
+# ---------------- Utility ----------------
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -40,13 +40,14 @@ def extract_text_from_pdf(pdf_path):
 # ---------------- Routes ----------------
 @app.route("/")
 def index():
-    return render_template("index.html")   # FIXED
+    return render_template("index.html")   # MUST match templates/index.html
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
     global LATEST_PDF
 
-    # FIXED: must match HTML name="file"
+    print("FILES RECEIVED:", request.files)  # DEBUG
+
     if 'file' not in request.files:
         return "No file part", 400
 

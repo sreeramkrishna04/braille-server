@@ -4,10 +4,15 @@
     <title>PDF to Braille</title>
 </head>
 <body>
+
     <h1>Upload PDF</h1>
+
     <form action="/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="pdf_file" accept=".pdf" required>
+        <!-- CRITICAL: name MUST be "file" -->
+        <input type="file" name="file" accept=".pdf" required>
+        <br><br>
         <input type="submit" value="Upload">
     </form>
+
 </body>
 </html>
