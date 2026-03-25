@@ -1,8 +1,2 @@
-flask
-pytesseract
-opencv-python-headless
-pillow
-pdf2image
-pdfplumber
-numpy
-gunicorn
+Flask
+PyPDF2
