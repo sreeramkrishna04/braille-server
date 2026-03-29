@@ -1,18 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>PDF to Braille</title>
+    <title>Braille System</title>
 </head>
 <body>
 
-    <h1>Upload PDF</h1>
+    <h1>Upload PDF or Image</h1>
 
     <form action="/upload" method="post" enctype="multipart/form-data">
-        <!-- CRITICAL: name MUST be "file" -->
-        <input type="file" name="file" accept=".pdf" required>
+        <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png" required>
         <br><br>
         <input type="submit" value="Upload">
     </form>
+
+    <hr>
+
+    <h2>Debug</h2>
+    <a href="/view_text" target="_blank">View Extracted Text</a>
 
 </body>
 </html>

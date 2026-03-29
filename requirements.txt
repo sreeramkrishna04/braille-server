@@ -1,2 +1,5 @@
 Flask
 PyPDF2
+pillow
+pytesseract
+werkzeug
