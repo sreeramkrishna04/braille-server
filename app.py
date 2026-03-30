@@ -30,16 +30,13 @@ pytesseract.pytesseract.tesseract_cmd = r"C:\Users\sreeramkrishna\Downloads\tess
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_PDF_EXTENSIONS.union(ALLOWED_IMAGE_EXTENSIONS)
 
-# 🔴 FIXED FUNCTION (ONLY CHANGE YOU NEEDED)
+# ✅ CLEAN TEXT (keeps punctuation + numbers)
 def clean_text(text):
-    # Keep letters, numbers, punctuation, and spaces
     text = re.sub(r'[^a-zA-Z0-9.,!? ]', '', text)
-
-    # Normalize spaces
     text = re.sub(r'\s+', ' ', text)
-
     return text.lower().strip()
 
+# ---------------- PDF ----------------
 def extract_text_from_pdf(pdf_path):
     text = ""
     try:
@@ -54,12 +51,21 @@ def extract_text_from_pdf(pdf_path):
 
     return clean_text(text)
 
+# ---------------- IMAGE (IMPROVED OCR) ----------------
 def extract_text_from_image(image_path):
     text = ""
     try:
         image = Image.open(image_path)
-        # Improved OCR (better punctuation detection)
+
+        # ✅ Convert to grayscale
+        image = image.convert('L')
+
+        # ✅ Apply simple threshold (binarization)
+        image = image.point(lambda x: 0 if x < 150 else 255, '1')
+
+        # ✅ OCR with better config
         text = pytesseract.image_to_string(image, config='--psm 6')
+
     except Exception as e:
         print(f"[ERROR] Image OCR failed: {e}")
 
@@ -92,7 +98,7 @@ def upload_file():
     name_without_ext = filename.rsplit('.', 1)[0]
     ext = filename.rsplit('.', 1)[1].lower()
 
-    # Processing
+    # Decide processing type
     if ext in ALLOWED_PDF_EXTENSIONS:
         text = extract_text_from_pdf(save_path)
     else:
@@ -119,6 +125,7 @@ def get_text():
         "text": EXTRACTED_TEXTS.get(LATEST_FILE, "")
     })
 
+# ---------------- DEBUG VIEW ----------------
 @app.route("/view_text")
 def view_text():
     if not LATEST_FILE:
