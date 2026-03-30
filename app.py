@@ -51,25 +51,31 @@ def extract_text_from_pdf(pdf_path):
 
     return clean_text(text)
 
-# ---------------- IMAGE (IMPROVED OCR) ----------------
+# ---------------- IMAGE (FIXED OCR) ----------------
 def extract_text_from_image(image_path):
     text = ""
     try:
         image = Image.open(image_path)
 
-        # ✅ Convert to grayscale
+        # ✅ Only grayscale (DO NOT threshold)
         image = image.convert('L')
 
-        # ✅ Apply simple threshold (binarization)
-        image = image.point(lambda x: 0 if x < 150 else 255, '1')
+        # ✅ RAW OCR OUTPUT (DEBUG)
+        raw_text = pytesseract.image_to_string(image, config='--psm 6')
+        print("====== RAW OCR OUTPUT ======")
+        print(raw_text)
+        print("============================")
 
-        # ✅ OCR with better config
-        text = pytesseract.image_to_string(image, config='--psm 6')
+        text = clean_text(raw_text)
+
+        print("====== CLEANED TEXT ======")
+        print(text)
+        print("==========================")
 
     except Exception as e:
         print(f"[ERROR] Image OCR failed: {e}")
 
-    return clean_text(text)
+    return text
 
 # ---------------- Routes ----------------
 @app.route("/")
@@ -105,7 +111,7 @@ def upload_file():
         text = extract_text_from_image(save_path)
 
     print("Uploaded:", filename)
-    print("Extracted text:", text[:200])
+    print("Final Extracted Text:", text[:200])
 
     EXTRACTED_TEXTS[name_without_ext] = text
     LATEST_FILE = name_without_ext
