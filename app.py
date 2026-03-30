@@ -23,18 +23,21 @@ os.makedirs(TEXT_FOLDER, exist_ok=True)
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# ---------------- Tesseract (Windows path) ----------------
+# ---------------- Tesseract ----------------
 pytesseract.pytesseract.tesseract_cmd = r"C:\Users\sreeramkrishna\Downloads\tesseract-5.4.0.20240606\tesseract.exe"
 
 # ---------------- Utility ----------------
 def allowed_file(filename):
-    ext = filename.rsplit('.', 1)[1].lower()
-    return ext in ALLOWED_PDF_EXTENSIONS.union(ALLOWED_IMAGE_EXTENSIONS)
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_PDF_EXTENSIONS.union(ALLOWED_IMAGE_EXTENSIONS)
 
+# 🔴 FIXED FUNCTION (ONLY CHANGE YOU NEEDED)
 def clean_text(text):
-    # Keep only letters and spaces → required for ESP32
-    text = re.sub(r'[^a-zA-Z ]', '', text)
+    # Keep letters, numbers, punctuation, and spaces
+    text = re.sub(r'[^a-zA-Z0-9.,!? ]', '', text)
+
+    # Normalize spaces
     text = re.sub(r'\s+', ' ', text)
+
     return text.lower().strip()
 
 def extract_text_from_pdf(pdf_path):
@@ -55,7 +58,8 @@ def extract_text_from_image(image_path):
     text = ""
     try:
         image = Image.open(image_path)
-        text = pytesseract.image_to_string(image)
+        # Improved OCR (better punctuation detection)
+        text = pytesseract.image_to_string(image, config='--psm 6')
     except Exception as e:
         print(f"[ERROR] Image OCR failed: {e}")
 
@@ -88,19 +92,18 @@ def upload_file():
     name_without_ext = filename.rsplit('.', 1)[0]
     ext = filename.rsplit('.', 1)[1].lower()
 
-    # Decide processing type
+    # Processing
     if ext in ALLOWED_PDF_EXTENSIONS:
         text = extract_text_from_pdf(save_path)
     else:
         text = extract_text_from_image(save_path)
 
     print("Uploaded:", filename)
-    print("Extracted text:", text[:200])  # preview only
+    print("Extracted text:", text[:200])
 
     EXTRACTED_TEXTS[name_without_ext] = text
     LATEST_FILE = name_without_ext
 
-    # Save text file
     with open(os.path.join(TEXT_FOLDER, f"{name_without_ext}.txt"), "w", encoding="utf-8") as f:
         f.write(text)
 
@@ -116,7 +119,6 @@ def get_text():
         "text": EXTRACTED_TEXTS.get(LATEST_FILE, "")
     })
 
-# 🔴 VIEW TEXT IN BROWSER (DEBUG)
 @app.route("/view_text")
 def view_text():
     if not LATEST_FILE:
